@@ -1,2 +1,2 @@
 # Contador_Horas_Trab
-Um contador para você saber quantas horas trabalho e quantas deve
+Um contador em C para você saber quantas horas trabalhou e quantas deve
