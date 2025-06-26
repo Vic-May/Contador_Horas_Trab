@@ -21,7 +21,7 @@ void limparBuffer() {
 
 void cabecalho() {
     printf("\n=======================================\n");
-    printf("   CONTROLE DE HORAS MENSALISTA 4.0\n");
+    printf("   CONTROLE DE HORAS MENSALISTA 4.1\n");
     printf("=======================================\n");
 }
 
@@ -41,14 +41,16 @@ void formatarHora(int minutos, char *buffer) {
     sprintf(buffer, "%02d:%02d", horas, min);
 }
 
-void adicionarRegistro(struct RegistroDia registros[], int *contador, int total_dias) {
-    if(*contador >= total_dias) {
-        printf("\nTodos os dias ja foram registrados! (%d/%d)\n", *contador, total_dias);
-        return;
+void adicionarRegistro(struct RegistroDia **registros, int *contador, int *capacidade) {
+    if(*contador >= *capacidade) {
+        // Aumenta a capacidade em blocos de 5 dias
+        *capacidade += 5;
+        *registros = realloc(*registros, *capacidade * sizeof(struct RegistroDia));
+        printf("\nCapacidade aumentada para %d dias\n", *capacidade);
     }
 
     cabecalho();
-    printf("\n>>> ADICIONAR DIA TRABALHADO [%d/%d]\n", *contador + 1, total_dias);
+    printf("\n>>> ADICIONAR DIA TRABALHADO [%d]\n", *contador + 1);
     
     struct RegistroDia novo;
     novo.dia = *contador + 1;
@@ -82,13 +84,13 @@ void adicionarRegistro(struct RegistroDia registros[], int *contador, int total_
         novo.saida_h, novo.saida_m
     );
     
-    registros[*contador] = novo;
+    (*registros)[*contador] = novo;
     (*contador)++;
     
-    printf("\nRegistro adicionado com sucesso! (%d/%d)\n", *contador, total_dias);
+    printf("\nRegistro adicionado com sucesso! (Total: %d dias)\n", *contador);
 }
 
-void listarRegistros(struct RegistroDia registros[], int contador, int total_dias) {
+void listarRegistros(struct RegistroDia *registros, int contador) {
     cabecalho();
     
     if(contador == 0) {
@@ -96,7 +98,7 @@ void listarRegistros(struct RegistroDia registros[], int contador, int total_dia
         return;
     }
     
-    printf("\nLISTA DE REGISTROS (%d de %d dias):\n", contador, total_dias);
+    printf("\nLISTA DE REGISTROS (%d dias):\n", contador);
     printf("-------------------------------------------------------------------\n");
     printf(" Dia | Entrada | Saida  | Total  | Minutos | Status\n");
     printf("-------------------------------------------------------------------\n");
@@ -136,7 +138,7 @@ void listarRegistros(struct RegistroDia registros[], int contador, int total_dia
     printf("\nLegenda: Diferença em relação a 6 horas (360 minutos) por dia\n");
 }
 
-void relatorioMensal(struct RegistroDia registros[], int contador, int total_dias) {
+void relatorioMensal(struct RegistroDia *registros, int contador) {
     cabecalho();
     
     if(contador == 0) {
@@ -153,8 +155,8 @@ void relatorioMensal(struct RegistroDia registros[], int contador, int total_dia
     int total_horas = total_minutos / 60;
     int total_minutos_res = total_minutos % 60;
     
-    // Cálculos para horas esperadas (6 horas por dia)
-    int minutos_esperados = total_dias * 360; // 6 horas = 360 minutos
+    // Cálculos para horas esperadas (6 horas por dia trabalhado)
+    int minutos_esperados = contador * 360; // 6 horas = 360 minutos
     int horas_esperadas = minutos_esperados / 60;
     int minutos_esperados_res = minutos_esperados % 60;
     
@@ -177,7 +179,7 @@ void relatorioMensal(struct RegistroDia registros[], int contador, int total_dia
 
     printf("\nRELATORIO MENSAL:\n");
     printf("========================================================================\n");
-    printf(" Dias registrados: %d de %d\n", contador, total_dias);
+    printf(" Dias trabalhados: %d\n", contador);
     printf("------------------------------------------------------------------------\n");
     printf(" Horas trabalhadas:   %6d:%02d  (%8d minutos)\n", total_horas, total_minutos_res, total_minutos);
     printf(" Horas esperadas:     %6d:%02d  (%8d minutos)\n", horas_esperadas, minutos_esperados_res, minutos_esperados);
@@ -186,21 +188,15 @@ void relatorioMensal(struct RegistroDia registros[], int contador, int total_dia
            sinal, horas_diferenca, minutos_diferenca, diferenca_minutos);
     printf(" Status:              %s\n", status);
     printf("========================================================================\n");
-    
-    if(contador < total_dias) {
-        int dias_faltantes = total_dias - contador;
-        printf("\n ATENCAO: Faltam %d dias para registrar!\n", dias_faltantes);
-    }
 }
 
-int salvarRegistros(struct RegistroDia registros[], int contador, int total_dias) {
+int salvarRegistros(struct RegistroDia *registros, int contador) {
     FILE *arquivo = fopen(ARQUIVO_REGISTROS, "wb");
     if(arquivo == NULL) {
         return 0; // Falha ao abrir arquivo
     }
     
-    // Salva o cabeçalho com total_dias e contador
-    fwrite(&total_dias, sizeof(int), 1, arquivo);
+    // Salva o número de registros
     fwrite(&contador, sizeof(int), 1, arquivo);
     
     // Salva todos os registros
@@ -210,18 +206,18 @@ int salvarRegistros(struct RegistroDia registros[], int contador, int total_dias
     return 1; // Sucesso
 }
 
-int carregarRegistros(struct RegistroDia **registros, int *contador, int *total_dias) {
+int carregarRegistros(struct RegistroDia **registros, int *contador, int *capacidade) {
     FILE *arquivo = fopen(ARQUIVO_REGISTROS, "rb");
     if(arquivo == NULL) {
         return 0; // Arquivo não existe
     }
     
-    // Carrega o cabeçalho com total_dias e contador
-    fread(total_dias, sizeof(int), 1, arquivo);
+    // Carrega o número de registros
     fread(contador, sizeof(int), 1, arquivo);
     
-    // Aloca memória para os registros
-    *registros = malloc(*total_dias * sizeof(struct RegistroDia));
+    // Define capacidade inicial (mínimo 5, ou mais se necessário)
+    *capacidade = (*contador < 5) ? 5 : *contador + 5;
+    *registros = malloc(*capacidade * sizeof(struct RegistroDia));
     if(*registros == NULL) {
         fclose(arquivo);
         return 0; // Falha na alocação
@@ -234,20 +230,16 @@ int carregarRegistros(struct RegistroDia **registros, int *contador, int *total_
     return 1; // Sucesso
 }
 
-int menuPrincipal(int contador, int total_dias) {
+int menuPrincipal(int contador) {
     cabecalho();
     printf("\nMENU PRINCIPAL:\n");
-    printf(" Dias registrados: %d/%d\n", contador, total_dias);
+    printf(" Dias registrados: %d\n", contador);
     printf(" Jornada diaria esperada: 6 horas\n\n");
     
     printf(" 1. Adicionar dia trabalhado\n");
     printf(" 2. Listar todos os registros\n");
     printf(" 3. Ver relatorio mensal\n");
     printf(" 4. Sair do programa\n");
-    
-    if(contador >= total_dias) {
-        printf("\n TODOS OS DIAS FORAM REGISTRADOS!\n");
-    }
     
     printf("\nEscolha uma opcao: ");
     
@@ -261,26 +253,16 @@ int main() {
     
     struct RegistroDia *registros = NULL;
     int contador = 0;
-    int total_dias = 0;
+    int capacidade = 5; // Capacidade inicial
     int executando = 1;
     
     // Tenta carregar dados existentes
-    if(carregarRegistros(&registros, &contador, &total_dias)) {
+    if(carregarRegistros(&registros, &contador, &capacidade)) {
         printf("\nDados carregados com sucesso! (%d dias registrados)\n", contador);
     } else {
-        printf("\nNenhum dado encontrado ou erro ao carregar.\n");
-        
-        // Definir quantidade de dias para registrar
-        while(total_dias <= 0 || total_dias > 31) {
-            printf("\nQuantos dias trabalhados deseja registrar? (1-31): ");
-            scanf("%d", &total_dias);
-            
-            if(total_dias <= 0 || total_dias > 31) {
-                printf("Valor invalido! Digite um numero entre 1 e 31.\n");
-            }
-        }
-        
-        registros = malloc(total_dias * sizeof(struct RegistroDia));
+        printf("\nNenhum dado encontrado. Iniciando novo registro.\n");
+        // Aloca memória inicial
+        registros = malloc(capacidade * sizeof(struct RegistroDia));
         if(registros == NULL) {
             printf("Erro ao alocar memoria! Encerrando...\n");
             return 1;
@@ -288,23 +270,23 @@ int main() {
     }
     
     while(executando) {
-        int opcao = menuPrincipal(contador, total_dias);
+        int opcao = menuPrincipal(contador);
         limparBuffer(); // Limpa o buffer do teclado
         
         switch(opcao) {
             case 1:
-                adicionarRegistro(registros, &contador, total_dias);
+                adicionarRegistro(&registros, &contador, &capacidade);
                 break;
             case 2:
-                listarRegistros(registros, contador, total_dias);
+                listarRegistros(registros, contador);
                 break;
             case 3:
-                relatorioMensal(registros, contador, total_dias);
+                relatorioMensal(registros, contador);
                 break;
             case 4:
                 executando = 0;
                 printf("\nSalvando dados... ");
-                if(salvarRegistros(registros, contador, total_dias)) {
+                if(salvarRegistros(registros, contador)) {
                     printf("Dados salvos com sucesso!\n");
                 } else {
                     printf("Erro ao salvar dados!\n");
