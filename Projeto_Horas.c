@@ -21,7 +21,7 @@ void limparBuffer() {
 
 void cabecalho() {
     printf("\n=======================================\n");
-    printf("   CONTROLE DE HORAS MENSALISTA 4.1\n");
+    printf("   CONTROLE DE HORAS MENSALISTA 4.5\n");
     printf("=======================================\n");
 }
 
@@ -135,7 +135,68 @@ void listarRegistros(struct RegistroDia *registros, int contador) {
     printf("-------------------------------------------------------------------\n");
     
     // Legenda de status
-    printf("\nLegenda: Diferença em relação a 6 horas (360 minutos) por dia\n");
+    printf("\nLegenda: Diferenca em relacao a 6 horas (360 minutos) por dia\n");
+}
+
+void apagarRegistro(struct RegistroDia **registros, int *contador) {
+    if(*contador == 0) {
+        printf("\nNenhum registro para apagar!\n");
+        return;
+    }
+    
+    cabecalho();
+    printf("\n>>> APAGAR REGISTRO DE DIA\n");
+    
+    // Mostra lista simplificada de dias
+    printf("\nDias registrados: ");
+    for(int i = 0; i < *contador; i++) {
+        printf("%d", (*registros)[i].dia);
+        if(i < *contador - 1) printf(", ");
+    }
+    printf("\n");
+    
+    int dia_apagar;
+    printf("\nDigite o numero do dia que deseja apagar: ");
+    scanf("%d", &dia_apagar);
+    
+    // Encontra o índice do dia
+    int indice = -1;
+    for(int i = 0; i < *contador; i++) {
+        if((*registros)[i].dia == dia_apagar) {
+            indice = i;
+            break;
+        }
+    }
+    
+    if(indice == -1) {
+        printf("\nDia %d não encontrado!\n", dia_apagar);
+        return;
+    }
+    
+    // Confirmação
+    char confirmacao;
+    printf("\nTem certeza que deseja apagar o dia %d? (S/N): ", dia_apagar);
+    scanf(" %c", &confirmacao);
+    
+    if(toupper(confirmacao) != 'S') {
+        printf("\nOperação cancelada!\n");
+        return;
+    }
+    
+    // Remove o registro deslocando os demais
+    for(int i = indice; i < *contador - 1; i++) {
+        (*registros)[i] = (*registros)[i+1];
+        (*registros)[i].dia = i + 1; // Atualiza o número do dia
+    }
+    
+    (*contador)--;
+    
+    // Atualiza os números dos dias restantes
+    for(int i = indice; i < *contador; i++) {
+        (*registros)[i].dia = i + 1;
+    }
+    
+    printf("\nDia %d apagado com sucesso! (Total restante: %d dias)\n", dia_apagar, *contador);
 }
 
 void relatorioMensal(struct RegistroDia *registros, int contador) {
@@ -238,10 +299,9 @@ int menuPrincipal(int contador) {
     
     printf(" 1. Adicionar dia trabalhado\n");
     printf(" 2. Listar todos os registros\n");
-    printf(" 3. Ver relatorio mensal\n");
-    printf(" 4. Sair do programa\n");
-    
-    printf("\nEscolha uma opcao: ");
+    printf(" 3. Apagar dia especifico\n");
+    printf(" 4. Ver relatorio mensal\n");
+    printf(" 5. Sair do programa\n");
     
     int opcao;
     scanf("%d", &opcao);
@@ -281,9 +341,12 @@ int main() {
                 listarRegistros(registros, contador);
                 break;
             case 3:
-                relatorioMensal(registros, contador);
+                apagarRegistro(&registros, &contador);
                 break;
             case 4:
+                relatorioMensal(registros, contador);
+                break;
+            case 5:
                 executando = 0;
                 printf("\nSalvando dados... ");
                 if(salvarRegistros(registros, contador)) {
@@ -297,7 +360,7 @@ int main() {
                 printf("\nOpcao invalida! Tente novamente.\n");
         }
         
-        if(executando && opcao != 4) {
+        if(executando && opcao != 5) {
             printf("\nPressione Enter para continuar...");
             limparBuffer();
             system("clear || cls"); // Limpa a tela
